@@ -1132,17 +1132,16 @@ void WorldSession::HandleUpdateAccountData(WorldPacket& recvData)
 {
     TC_LOG_DEBUG("network", "WORLD: Received CMSG_UPDATE_ACCOUNT_DATA");
 
-    uint32 timestamp, type, decompressedSize;
-    recvData >> timestamp >> decompressedSize;
-    type = recvData.ReadBits(3);
+    uint32 timestamp, type, decompressedSize, compressedSize;
+    recvData >> decompressedSize >> timestamp >> compressedSize;
 
-    TC_LOG_DEBUG("network", "UAD: type %u, time %u, decompressedSize %u", type, timestamp, decompressedSize);
-
-    if (type > NUM_ACCOUNT_DATA_TYPES)
-        return;
+    TC_LOG_DEBUG("network", "UAD: time %u, decompressedSize %u, compressedSize %u", timestamp, decompressedSize, compressedSize);
 
     if (decompressedSize == 0)                               // erase
     {
+        type = recvData.ReadBits(3);
+        recvData.rfinish();
+
         SetAccountData(AccountDataType(type), 0, "");
 
         WorldPacket data(SMSG_UPDATE_ACCOUNT_DATA_COMPLETE, 4+4);
@@ -1171,6 +1170,10 @@ void WorldSession::HandleUpdateAccountData(WorldPacket& recvData)
         return;
     }
 
+    type = recvData.ReadBits(3);
+    if (type > NUM_ACCOUNT_DATA_TYPES)
+        return;
+
     recvData.rfinish();                       // uncompress read (recvData.size() - recvData.rpos())
 
     std::string adata;
@@ -1178,7 +1181,7 @@ void WorldSession::HandleUpdateAccountData(WorldPacket& recvData)
 
     SetAccountData(AccountDataType(type), timestamp, adata);
 
-    WorldPacket data(SMSG_UPDATE_ACCOUNT_DATA_COMPLETE, 4+4);
+    WorldPacket data(SMSG_UPDATE_ACCOUNT_DATA_COMPLETE, 4 + 4);
     data << uint32(type);
     data << uint32(0);
     SendPacket(&data);
@@ -1383,6 +1386,11 @@ void WorldSession::HandleMoveRootAck(WorldPacket& recvData)
     MovementInfo movementInfo;
     ReadMovementInfo(recvData, &movementInfo);
 */
+}
+
+void WorldSession::HandleSendTimezoneInformation(WorldPacket& recvData)
+{
+    SendTimezoneInformation();
 }
 
 void WorldSession::HandleSetActionBarToggles(WorldPacket& recvData)
@@ -1734,7 +1742,7 @@ void WorldSession::HandleTimeSyncResp(WorldPacket& recvData)
     uint32 counter, clientTicks;
     recvData >> counter >> clientTicks;
 
-    if (counter != _player->m_timeSyncQueue.front())
+    if (counter != _player->m_timeSyncCounter)
         TC_LOG_ERROR("network", "Wrong time sync counter from player %s (cheater?)", _player->GetName().c_str());
 
     TC_LOG_DEBUG("network", "Time sync received: counter %u, client ticks %u, time since last sync %u", counter, clientTicks, clientTicks - _player->m_timeSyncClient);
@@ -1745,7 +1753,6 @@ void WorldSession::HandleTimeSyncResp(WorldPacket& recvData)
     TC_LOG_DEBUG("network", "Our ticks: %u, diff %u, latency %u", ourTicks, ourTicks - clientTicks, GetLatency());
 
     _player->m_timeSyncClient = clientTicks;
-    _player->m_timeSyncQueue.pop();
 }
 
 void WorldSession::HandleResetInstancesOpcode(WorldPacket& /*recvData*/)

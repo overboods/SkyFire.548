@@ -27333,6 +27333,7 @@ void Player::ActivateSpec(uint8 spec)
 
 void Player::ResetTimeSync()
 {
+    m_timeSyncCounter = 0;
     m_timeSyncTimer = 0;
     m_timeSyncClient = 0;
     m_timeSyncServer = getMSTime();
@@ -27340,18 +27341,15 @@ void Player::ResetTimeSync()
 
 void Player::SendTimeSync()
 {
-    m_timeSyncQueue.push(m_movementCounter++);
+    m_timeSyncCounter = m_movementCounter;
 
     WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
-    data << uint32(m_timeSyncQueue.back());
+    data << uint32(m_movementCounter++);
     GetSession()->SendPacket(&data);
 
     // Schedule next sync in 10 sec
     m_timeSyncTimer = 10000;
     m_timeSyncServer = getMSTime();
-
-    if (m_timeSyncQueue.size() > 3)
-        TC_LOG_ERROR("network", "Not received CMSG_TIME_SYNC_RESP for over 30 seconds from player %u (%s), possible cheater", GetGUIDLow(), GetName().c_str());
 }
 
 void Player::SetReputation(uint32 factionentry, uint32 value)

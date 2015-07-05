@@ -1008,6 +1008,8 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
         TC_LOG_DEBUG("network", "WORLD: Sent server info");
     }
 
+    SendTimezoneInformation();
+
     data.Initialize(SMSG_PVP_SEASON, 4 + 4);
     data << uint32(sWorld->getIntConfig(CONFIG_ARENA_SEASON_ID) - 1); // Old season
     data << uint32(sWorld->getIntConfig(CONFIG_ARENA_SEASON_ID));     // Current season
@@ -1029,9 +1031,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
         pCurrChar->SetGuildLevel(0);
     }
 
-    SendTimezoneInformation();
-
-    HotfixData const& hotfix = sObjectMgr->GetHotfixData();
+        HotfixData const& hotfix = sObjectMgr->GetHotfixData();
 
     data.Initialize(SMSG_HOTFIX_INFO);
     data.WriteBits(hotfix.size(), 20);
